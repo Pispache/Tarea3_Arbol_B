@@ -117,7 +117,7 @@ public class Arbol_B {
             return search(actual.hijos[i], key);
         }
     }
-    
+
     //Metodo para insertar
     public void insertar(int key_claves) {
         Arbol_B_Estrucutra copiaArbol = root; //realizo una copia de la estructura
@@ -262,6 +262,261 @@ public class Arbol_B {
                     print(n_claves.hijos[comprobar]); // Llama recursivamente al método print con el hijo actual
                 }
             }
+        }
+    }
+
+    //Eliminacion
+    /*Debe cumplir con lo siguiente
+Si el orden del arbol es M, cada hoja debe tener al menos (m/2) - 1 claves.
+1. Si la clave a eliminar se encuentra en una hoja se borra directamente
+2. Si al realizar la eliminacion el nodo mantiene el minimo numero de claves
+ finaliza, en caso contrario se debe hacer una redestribución
+3. Si el elemento no se encuentra en una hoja se debe subir la clave
+ que se encuentere más a la derecha (por default) en el sub árbol izquierdo, (o más a la izquierda
+ del subarbol derecho)
+ 4. Si al subir esta clave, en la hoja respectiva no se cumple el mínimo numero de claves
+ se debe realizar una redistribución ( un nodo se queda sin el minimo de claves)
+ una hoja vecina inmediata tiene suficientes claves nos da un prestamo
+ a) el vecino la clave que esta mas a la izquierda o derecha sube
+ y la padre baja
+ b) si el vecino no cuenta con suficientes claves se debe realizar una fusion
+ la hija vecina que es pequeña y el padre se junta para fusionarse. (hoja sin nada, padre y vecina)*/
+    public void eliminar(int key_claves) {
+        if (root == null) {
+            System.out.println("El árbol está vacío.");
+            return;
+        }
+
+        eliminarRec(root, key_claves);
+
+        if (root.n_claves == 0) {
+            // Si después de eliminar la clave el nodo raíz queda vacío, se actualiza la raíz
+            if (root.hoja) {
+                root = null;
+            } else {
+                Arbol_B_Estrucutra temp = root;
+                root = root.hijos[0];
+                temp = null;
+            }
+        }
+    }
+
+    private void eliminarRec(Arbol_B_Estrucutra actual, int key_claves) {
+        int index = encontrarClave(actual, key_claves);
+
+        if (index < actual.n_claves && actual.key_claves[index] == key_claves) {
+            if (actual.hoja) {
+                eliminarHoja(actual, index);
+            } else {
+                eliminarNoHoja(actual, index);
+            }
+        } else {
+            if (actual.hoja) {
+                System.out.println("La clave " + key_claves + " no está presente en el árbol.");
+                return;
+            }
+
+            boolean flag = (index == actual.n_claves);
+
+            if (actual.hijos[index].n_claves < Grado_min) {
+                llenar(actual, index);
+            }
+
+            if (flag && index > actual.n_claves) {
+                eliminarRec(actual.hijos[index - 1], key_claves);
+            } else {
+                eliminarRec(actual.hijos[index], key_claves);
+            }
+        }
+    }
+
+    private void eliminarHoja(Arbol_B_Estrucutra actual, int index) {
+        for (int i = index + 1; i < actual.n_claves; ++i) {
+            actual.key_claves[i - 1] = actual.key_claves[i];
+        }
+
+        actual.n_claves--;
+    }
+
+    private void eliminarNoHoja(Arbol_B_Estrucutra actual, int index) {
+        int key_claves = actual.key_claves[index];
+
+        if (actual.hijos[index].n_claves >= Grado_min) {
+            int pred = obtenerPredecesor(actual, index);
+            actual.key_claves[index] = pred;
+            eliminarRec(actual.hijos[index], pred);
+        } else if (actual.hijos[index + 1].n_claves >= Grado_min) {
+            int succ = obtenerSucesor(actual, index);
+            actual.key_claves[index] = succ;
+            eliminarRec(actual.hijos[index + 1], succ);
+        } else {
+            fusionar(actual, index);
+            eliminarRec(actual.hijos[index], key_claves);
+        }
+    }
+
+    private int encontrarClave(Arbol_B_Estrucutra actual, int key_claves) {
+        int index = 0;
+        while (index < actual.n_claves && actual.key_claves[index] < key_claves) {
+            ++index;
+        }
+        return index;
+    }
+
+    private int obtenerPredecesor(Arbol_B_Estrucutra actual, int index) {
+        // Obtener el nodo desde el cual se buscará el predecesor
+        Arbol_B_Estrucutra temp = actual.hijos[index];
+
+        // Mientras el nodo no sea una hoja, avanzar al hijo más a la derecha
+        while (!temp.hoja) {
+            temp = temp.hijos[temp.n_claves];
+        }
+
+        // El predecesor es la última clave en el nodo encontrado
+        return temp.key_claves[temp.n_claves - 1];
+    }
+
+    private int obtenerSucesor(Arbol_B_Estrucutra actual, int index) {
+        // Obtener el siguiente nodo a través del hijo en el índice dado
+        Arbol_B_Estrucutra temp = actual.hijos[index + 1];
+
+        // Mientras el siguiente nodo no sea una hoja, avanzar al hijo más a la izquierda
+        while (!temp.hoja) {
+            temp = temp.hijos[0];
+        }
+
+        // El sucesor es la primera clave en el nodo encontrado
+        return temp.key_claves[0];
+    }
+
+    private void llenar(Arbol_B_Estrucutra actual, int index) {
+        // Verificar si el nodo anterior tiene suficientes claves para prestar una
+        if (index != 0 && actual.hijos[index - 1].n_claves >= Grado_min) {
+            prestarDelAnterior(actual, index); // Prestar del nodo anterior
+        } // Verificar si el nodo siguiente tiene suficientes claves para prestar una
+        else if (index != actual.n_claves && actual.hijos[index + 1].n_claves >= Grado_min) {
+            prestarDelSiguiente(actual, index); // Prestar del nodo siguiente
+        } // Si no se puede prestar del anterior ni del siguiente, fusionar con el siguiente o anterior según sea el caso
+        else {
+            if (index != actual.n_claves) {
+                fusionar(actual, index); // Fusionar con el siguiente si es posible
+            } else {
+                fusionar(actual, index - 1); // Fusionar con el anterior si es posible
+            }
+        }
+    }
+
+    private void fusionar(Arbol_B_Estrucutra actual, int index) {
+        // Obtener el hijo en la posición index del nodo actual y el hermano siguiente
+        Arbol_B_Estrucutra hijo = actual.hijos[index];
+        Arbol_B_Estrucutra hermano = actual.hijos[index + 1];
+
+        // Mover la clave index del nodo actual al último índice del hijo
+        hijo.key_claves[Grado_min - 1] = actual.key_claves[index];
+
+        // Mover las claves del hermano al hijo a partir de la posición Grado_min en el hijo
+        for (int i = 0; i < hermano.n_claves; ++i) {
+            hijo.key_claves[i + Grado_min] = hermano.key_claves[i];
+        }
+
+        // Si el hijo no es una hoja, mover los hijos del hermano al hijo a partir de la posición Grado_min en el hijo
+        if (!hijo.hoja) {
+            for (int i = 0; i <= hermano.n_claves; ++i) {
+                hijo.hijos[i + Grado_min] = hermano.hijos[i];
+            }
+        }
+
+        // Mover las claves y los hijos del nodo actual después de index una posición hacia la izquierda
+        for (int i = index + 1; i < actual.n_claves; ++i) {
+            actual.key_claves[i - 1] = actual.key_claves[i];
+        }
+
+        for (int i = index + 2; i <= actual.n_claves; ++i) {
+            actual.hijos[i - 1] = actual.hijos[i];
+        }
+
+        // Actualizar el número de claves en el hijo y en el nodo actual, y liberar memoria del hermano fusionado
+        hijo.n_claves += hermano.n_claves + 1;
+        actual.n_claves--;
+
+        hermano = null; // Liberar memoria del hermano fusionado
+    }
+
+    private void prestarDelAnterior(Arbol_B_Estrucutra actual, int index) {
+        // Obtener el hijo en la posición index del nodo actual y el hermano anterior
+        Arbol_B_Estrucutra hijo = actual.hijos[index];
+        Arbol_B_Estrucutra hermano = actual.hijos[index - 1];
+
+        // Desplazar las claves en el hijo una posición hacia la derecha
+        for (int i = hijo.n_claves - 1; i >= 0; --i) {
+            hijo.key_claves[i + 1] = hijo.key_claves[i];
+        }
+
+        // Si el hijo no es una hoja, ajustar los hijos del hijo para que se desplacen una posición hacia la derecha
+        if (!hijo.hoja) {
+            for (int i = hijo.n_claves; i >= 0; --i) {
+                hijo.hijos[i + 1] = hijo.hijos[i];
+            }
+        }
+
+        // Copiar la última clave del hermano anterior al inicio de las claves del hijo
+        hijo.key_claves[0] = actual.key_claves[index - 1];
+
+        // Si el hijo no es una hoja, ajustar el primer hijo del hijo para que apunte al último hijo del hermano anterior
+        if (!actual.hoja) {
+            hijo.hijos[0] = hermano.hijos[hermano.n_claves];
+        }
+
+        // Actualizar la clave del nodo actual en la posición index - 1 con la última clave del hermano anterior
+        actual.key_claves[index - 1] = hermano.key_claves[hermano.n_claves - 1];
+
+        // Incrementar el número de claves en el hijo y decrementar el número de claves en el hermano
+        hijo.n_claves++;
+        hermano.n_claves--;
+    }
+
+    private void prestarDelSiguiente(Arbol_B_Estrucutra actual, int index) {
+        // Obtener el hijo en la posición index del nodo actual y el hermano siguiente
+        Arbol_B_Estrucutra hijo = actual.hijos[index];
+        Arbol_B_Estrucutra hermano = actual.hijos[index + 1];
+
+        // Copiar la clave del nodo actual en la posición index al final de las claves del hijo
+        hijo.key_claves[hijo.n_claves] = actual.key_claves[index];
+
+        // Si el hijo no es una hoja, ajustar los hijos del hijo para que apunten al primer hijo del hermano
+        if (!hijo.hoja) {
+            hijo.hijos[hijo.n_claves + 1] = hermano.hijos[0];
+        }
+
+        // Actualizar la clave del nodo actual en la posición index con la primera clave del hermano
+        actual.key_claves[index] = hermano.key_claves[0];
+
+        // Desplazar las claves en el hermano una posición hacia la izquierda
+        for (int i = 1; i < hermano.n_claves; ++i) {
+            hermano.key_claves[i - 1] = hermano.key_claves[i];
+        }
+
+        // Si el hermano no es una hoja, ajustar los hijos del hermano para que se desplacen una posición hacia la izquierda
+        if (!hermano.hoja) {
+            for (int i = 1; i <= hermano.n_claves; ++i) {
+                hermano.hijos[i - 1] = hermano.hijos[i];
+            }
+        }
+
+        // Decrementar el número de claves en el hermano y aumentar el número de claves en el hijo
+        hermano.n_claves--;
+        hijo.n_claves++;
+    }
+
+    // Método para insertar una lista de datos separados por comas
+    public void insertarLista(String listaDatos) {
+        // Dividir la cadena de entrada en tokens usando la coma como delimitador
+        String[] datos = listaDatos.split(",");
+
+        // Convertir los tokens en valores enteros y luego insertarlos en el árbol
+        for (String dato : datos) {
+            int valor = Integer.parseInt(dato.trim()); // Convertir a entero y eliminar espacios en blanco
+            insertar(valor); // Llamar al método insertar para insertar el valor en el árbol
         }
     }
 
